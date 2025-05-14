@@ -1,89 +1,93 @@
 '''
 *@file Name Popularity.py
-*@brief Compares popularity of two names and prints the total sum of their frequencies
-* and also figures out maximum popularity of a name and prints out associated year and frequency
+*@brief Fetches up-to-date name information from SSA.gov to compare popularity of two names and print the total sum of their frequencies.
+* Also figures out maximum popularity of a name and prints out associated year and frequency.
 *
-*@author Tina Kordahi
+*@author Chandler Lyon
+*@OriginalAuthor Tina Kordahi
 *@date February 10, 2021
-*@date revised October 23, 2023
+*@date revised May 14, 2025
 *@bug None
 *
 '''
-
 import csv
-
+import io
+import zipfile
+import urllib.request
 
 print("Welcome to the baby name analyzer!")
+
+# Download and read SSA baby names data
+def get_baby_name_data():
+    url = "https://www.ssa.gov/oact/babynames/names.zip"
+    print("Getting up-to-date records on baby names from 1880 to current.");
+    headers = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Referer": "https://www.ssa.gov/oact/babynames/",
+    }
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req) as response:
+        with zipfile.ZipFile(io.BytesIO(response.read())) as z:
+            data = []
+            for filename in z.namelist():
+                if filename.startswith("yob") and filename.endswith(".txt"):
+                    year = filename[3:7]
+                    with z.open(filename) as f:
+                        for row in csv.reader(io.TextIOWrapper(f)):
+                            data.append((
+                              row[0].lower(),# name lowercased
+                              year,# year of data
+                              row[1].lower(),# gender data 
+                              int(row[2]) # frequency
+                            ));
+            return data
+
+baby_data = get_baby_name_data()
+
 repeat = "yes"
-
 while repeat == "yes":
-  answer = input("What would you like to run (name comparison/maximum popularity)?: ").lower()
+  try:
+    answer = int(input("What would you like to run?\n1: name comparison\n2: maximum popularity\n "))
 
-#NAME COMPARISON
-  if answer == "name comparison":
-    first = input("Enter the first name to analyze: ")
-    second = input("Enter the second name to analyze: ")
-    first_sum = 0
-    second_sum = 0
+    if answer == 1:
+        first = input("Enter the first name to analyze: ").lower()
+        second = input("Enter the second name to analyze: ").lower()
+        first_sum = sum(row[3] for row in baby_data if row[0] == first)
+        second_sum = sum(row[3] for row in baby_data if row[0] == second)
 
-#opening file and summing values associated with names
-    with open("usa_baby_names.csv", "r") as file:
-      for row in csv.reader(file):
-        if row[1] == first:
-          first_sum += int(row[4])
+        if first_sum >= second_sum:
+            print(f"{first} was more popular than {second} ({first_sum} to {second_sum})")
+        else:
+            print(f"{second} was more popular than {first} ({second_sum} to {first_sum})")
 
-
-        if row[1] == second:
-          second_sum += int(row[4])
-
-#printing out name comparison totals
-      if first_sum >= second_sum:
-        print(first, "was more popular than", second,"(", first_sum, "to", second_sum, ")")
-
-      else:
-        print(second, "was more popular than", first,"(", second_sum, "to", first_sum, ")")
-
-    repeat = input("Would you like to run another analysis (yes/no)?: ").lower()
-
-#repeat error checking
-    if repeat != "yes" and repeat != "no":
-      print("Invalid response, try again!")
-      repeat = "yes"
-
-#MAXIMUM POPULARITY
-  elif answer == "maximum popularity":
-    name = input("Enter the name to analyze: ")
-    freq = []
-    year = []
-
-#opening files and appending frequency and year values to lists for freq and year
-    with open("usa_baby_names.csv", "r") as file:
-      for row in csv.reader(file):
-        if row[1] == name:
-          freq.append(int(row[4]))
-          year.append(row[2])
-
-#finding max frequency and index of that max to find the associated year with that max
-    maxf = max(freq)
-    index = freq.index(maxf)
-
-    print(name, "was most popular in", year[index], "with a frequency of", maxf)
+    elif answer == 2:
+        name = input("Enter the name to analyze: ").lower()
+        name_data = [(row[1], row[3]) for row in baby_data if row[0] == name]
+        if not name_data:
+            print("Name not found.")
+        else:
+            year, maxf = max(name_data, key=lambda x: x[1])
+            print(f"{name} was most popular in {year} with a frequency of {maxf}")
+    else:
+        print("Thats not a valid option, please enter 1 for name comparison or 2 for maximum popularity.")
 
     repeat = input("Would you like to run another analysis (yes/no)?: ").lower()
+    if repeat not in ["yes", "no"]:
+        print("Invalid response, try again!")
+        repeat = "yes"
+    
+  except ValueError:
+    print("Sorry, thats not a valid option, please enter 1 for name comparison or 2 for maximum popularity.")
+       
 
-#repeat error checking
-    if repeat != "yes" and repeat != "no":
-      print("Invalid response, try again!")
-      repeat = "yes"
-
-#ANALYSIS ERROR CHECKING
-  else:
-    print("Sorry, that type of analysis is not supported.")
-    repeat = input("Would you like to run another analysis (yes/no)?: ").lower()
-
-#repeat error checking
-    if repeat != "yes" and repeat != "no":
-      print("Invalid response, try again!")
-      repeat = "yes"
 
 print("Goodbye!")
